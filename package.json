@@ -17,6 +17,8 @@
     "express-fileupload": "^1.2.1",
     "firebase-admin": "^10.0.0",
     "mongodb": "^4.2.1",
-    "nodemon": "^2.0.15"
+    "nodemon": "^2.0.15",
+    "sslcommerz": "^1.6.6",
+    "uuid": "^8.3.2"
   }
 }

@@ -6,6 +6,8 @@ const ObjectId = require('mongodb').ObjectId;
 require('dotenv').config();
 const admin = require("firebase-admin");
 const fileUpload = require('express-fileupload');
+const SSLCommerzPayment = require('sslcommerz'); 
+const { v4: uuidv4 } = require('uuid');
 const port = process.env.PORT || 5000;
 
 //middleware 
@@ -25,7 +27,10 @@ async function run() {
         const ResultCollection = database.collection('ResultCollection');
         const ClassRoutineCollection = database.collection('ClassRoutineCollection');
         const TeacherNoticeCollection = database.collection('TeacherNoticeCollection');
-        const StudentNoticeCollection = database.collection('StudentNoticeCollection')
+        const StudentNoticeCollection = database.collection('StudentNoticeCollection');
+        const FeeCollection = database.collection('FeeCollection');
+        const PaymentCollection = database.collection('PaymentCollection');
+        
 // ----------for all teacher -----------//
 
         //adding user to database
@@ -221,7 +226,49 @@ async function run() {
             const result = await StudentNoticeCollection.updateOne(filter, updatedoc, option);
             res.send(result)
         })
+
+        //principal getting all teacher info
+        app.get('/getteacher', async (req, res) => {
+            const query = {role: "Teacher"};
+            const result = await UserCollection.find(query).toArray();
+            res.send(result)
+        })
         
+        //principal posting payment
+        app.post('/postpayment', async(req, res) =>{
+            const data = req.body;
+            const result = await FeeCollection.insertMany(data);
+            res.json(result)
+        })
+        //principal geting all student 
+        app.get('/getallstudent', async (req, res) => {
+            const query = {role: 'Student'};
+            const result = await UserCollection.find(query).toArray()
+            res.send(result) 
+        })
+        //principal getting student by their class to check payment 
+        app.get('/checkstudentpayments', async (req, res) => {
+            const studentclass = req.query.class;
+            const query = {studentclass: studentclass};
+            const result = await UserCollection.find(query).toArray();
+            res.send(result)
+        })
+        //principal geting individual result of student
+        app.get('/individualpaymentcheck/:id', async(req, res) => {
+            const id = req.params.id;
+            const query = {_id: ObjectId(id)};
+            const student = await UserCollection.findOne(query);
+            console.log(student)
+            if(student.studentname)
+            {
+                const query2 = {studentclass: student.studentclass, studentroll: student.studentroll, studentname: student.studentname};
+                const result = await FeeCollection.find(query2).toArray();
+                res.send(result)
+            } 
+            else{
+                res.send('wrong')
+            }
+        })
 // ----------------END Teacher---------------//
 
 //----------------for stduent----------//
@@ -260,9 +307,10 @@ async function run() {
         app.get('/transcriptget', async (req, res) => {
             const email = req.query.email;
             const query = {email: email};
-           
+      
             const student = await UserCollection.findOne(query)
-            if(student.email)
+
+            if(student?.email)
             {
                 const query2 = {studentname: student.studentname, studentroll: student.studentroll, class: student.studentclass, section: student.studentsection}
                 const result = await ResultCollection.find(query2).toArray();
@@ -286,7 +334,7 @@ async function run() {
             else{
                 res.send('hi')
             }
-        })
+        }) 
 
         //geting class routine 
         app.get('/getclassroutine', async (req,res) => {
@@ -295,6 +343,138 @@ async function run() {
             res.send(result)
         })
 
+        //student get info of fees
+        app.get('/getfees', async(req, res) => {
+            const email = req.query.email;
+            const query = {email: email};
+            const result = await FeeCollection.find(query).toArray();
+            res.send(result)
+        })
+
+// -------------Bikash Payment system implement-----------//
+        app.get('/getpaymentmonth/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id)
+            const query = {_id: ObjectId(id)};
+            const result = await FeeCollection.findOne(query);
+            res.send(result)
+        })
+
+        app.post('/init', async (req, res) => {
+            const id = req.body.id
+            const productInfo = {
+                total_amount: req.body.total_amount,
+                currency: 'BDT',
+                tran_id: uuidv4(),
+                success_url: 'http://localhost:5000/success',
+                fail_url: 'http://localhost:5000/failure',
+                cancel_url: 'http://localhost:5000/cancel',
+                ipn_url: 'http://localhost:5000/ipn',
+                paymentStatus: 'pending',
+                shipping_method: 'Courier',
+                product_name: req.body.cus_name,
+                product_category: 'Electronic',
+                product_profile: 'shool',
+                product_image: req.body.cus_name,
+                cus_name: req.body.cus_name,
+                cus_email: req.body.cus_email,
+                cus_add1: 'Dhaka',
+                cus_add2: 'Dhaka',
+                cus_city: 'Dhaka',
+                cus_state: 'Dhaka',
+                cus_postcode: '1000',
+                cus_country: 'Bangladesh',
+                cus_phone: '01711111111',
+                cus_fax: '01711111111',
+                ship_name: req.body.cus_name,
+                ship_add1: 'Dhaka',
+                ship_add2: 'Dhaka',
+                ship_city: 'Dhaka',
+                ship_state: 'Dhaka',
+                ship_postcode: 1000,
+                ship_country: 'Bangladesh',
+                multi_card_name: 'mastercard',
+                value_a: 'ref001_A',
+                value_b: 'ref002_B',
+                value_c: 'ref003_C',
+                value_d: 'ref004_D'
+            };
+ 
+
+            const sslcommer = new SSLCommerzPayment(process.env.STORE_ID, process.env.STORE_PASSWORD, false) 
+            sslcommer.init(productInfo).then(data => {
+    
+                //process the response that got from sslcommerz 
+                //https://developer.sslcommerz.com/doc/v4/#returned-parameters
+    
+                const info = { ...productInfo, ...data }
+                console.log(info)
+                if (info.GatewayPageURL) {
+                    res.json(info.GatewayPageURL)
+                 }
+                else {
+                    return res.status(400).json({
+                        message: "SSL session was not successful"
+                    })
+                }
+     
+            }); 
+    
+            app.post("/success", async (req, res) => {
+                const filter = {_id: ObjectId(id)}
+                const option = {upsert: true};
+          
+                const updatedoc ={
+                    $set:{
+                        paymentStatus: 'PAID',
+                        tran_id: uuidv4()
+                    }
+                }
+                const result = await FeeCollection.updateOne(filter, updatedoc, option)
+               res.status(200).redirect(`http://localhost:3000/studentdashboard/success`)
+               
+            })
+    
+            app.post("/failure", async (req, res) => {
+    
+                res.status(400).redirect('http://localhost:3000/studentdashboard/studentpayment')
+         
+             })
+             app.post("/cancel", async (req, res) => {
+    
+                res.status(400).redirect('http://localhost:3000/studentdashboard/studentpayment')
+         
+             })
+    
+             app.get('/payment/:tran_id', async (req, res) => {
+        
+                const id = req.params.tran_id;
+                const result = await PaymentCollection.findOne({ tran_id: id })
+                res.json(result)
+            })
+    
+            // app.post('/validate', async (req, res) => {
+            //     const result = await PaymentCollection.findOne({
+            //         tran_id: req.body.tran_id
+            //     })
+        
+            //     if (result.val_id === req.body.val_id) {
+            //         const update = await PaymentCollection.updateOne({ tran_id: req.body.tran_id }, {
+            //             $set: {
+            //                 paymentStatus: 'paymentComplete'
+            //             }
+            //         })
+                   
+            //         res.send(update.modifiedCount > 0)
+        
+            //     }
+            //     else {
+            //         res.send({false: false})
+            //     }
+        
+            // })
+    
+        });
         //----------------END stduent----------//
 
     }
