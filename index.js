@@ -30,6 +30,7 @@ async function run() {
         const StudentNoticeCollection = database.collection('StudentNoticeCollection');
         const FeeCollection = database.collection('FeeCollection');
         const PaymentCollection = database.collection('PaymentCollection');
+        const AnouncementCollection = database.collection('AnouncementCollection')
         
 // ----------for all teacher -----------//
 
@@ -42,11 +43,18 @@ async function run() {
 
         // checking user role
         app.get('/checkuser', async (req, res) => {
- 
             const email = req.query.email;
             const query = {email: email};
+         
             const user = await UserCollection.findOne(query);
-            res.send({userrole: user.role})
+ 
+            if(user)
+            {
+                res.send({userrole: user.role})
+            }
+            else{
+                res.send('HI')
+            }
         })
 
         //finding section and class for teacher
@@ -173,7 +181,8 @@ async function run() {
             const option = {upsert: true};
             const updatedoc = {
                 $set: {
-                    teachernotice: data.teachernotice
+                    title: data.title,
+                    description: data.description
                 }
             }
             const result = await TeacherNoticeCollection.updateOne(filter, updatedoc, option);
@@ -220,12 +229,13 @@ async function run() {
             const option = {upsert: true};
             const updatedoc = {
                 $set: {
-                    studentnotice: data.studentnotice
+                    title: data.title,
+                    description: data.description
                 }
             }
             const result = await StudentNoticeCollection.updateOne(filter, updatedoc, option);
             res.send(result)
-        })
+        }) 
 
         //principal getting all teacher info
         app.get('/getteacher', async (req, res) => {
@@ -269,6 +279,55 @@ async function run() {
                 res.send('wrong')
             }
         })
+        
+
+         //principal posting anouncement 
+         app.post('/publishanouncement', async (req, res) => {
+            const notice = req.body;
+            const result = await AnouncementCollection.insertOne(notice);
+            res.json(result)
+        })
+
+        //principal geting anouncement for managing
+        app.get('/getAnouncement', async(req,res) => {
+            const cursor = AnouncementCollection.find({});
+            const result = await cursor.toArray();
+            res.send(result)
+        })
+
+        //principal deleting anouncement 
+        app.delete('/anouncementdelete/:id', async (req, res) =>{
+            const id = req.params.id;
+
+            const query = {_id: ObjectId(id)};
+            const result = await AnouncementCollection.deleteOne(query);
+            res.send(result)
+        })
+
+        //principal geting specific anouncement for editing
+        app.get('/getEditAnouncement/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = {_id: ObjectId(id)}
+            const result = await AnouncementCollection.findOne(query);
+            res.send(result)
+        })
+
+        //principal puting  edited anouncement 
+        app.put('/putEditedAnouncement/:id', async (req, res) => {
+            const id = req.params.id;
+            const data = req.body;
+            const filter = {_id: ObjectId(id)};
+            const option = {upsert: true};
+            const updatedoc = {
+                $set: {
+                    title: data.title,
+                    description: data.description
+                }
+            }
+            const result = await AnouncementCollection.updateOne(filter, updatedoc, option);
+            res.send(result)
+        })
+
 // ----------------END Teacher---------------//
 
 //----------------for stduent----------//
@@ -288,7 +347,7 @@ async function run() {
             const queryone = {email: email}
             const student = await UserCollection.findOne(queryone);
 
-               if(student.email && term)
+               if(student && term)
                {
                
                 const querytwo = {term: term,studentname: student.studentname, studentroll: student.studentroll, class: student.studentclass}
