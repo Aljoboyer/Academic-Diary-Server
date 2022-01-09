@@ -33,6 +33,7 @@ async function run() {
         const AnouncementCollection = database.collection('AnouncementCollection');
         const ExamRoutineCollection = database.collection('ExamRoutineCollection');
         const ManualClassRoutineCollection = database.collection('ManualClassRoutineCollection');
+        const AddmissionFormCollection = database.collection('AddmissionFormCollection')
         
 // ----------for all teacher -----------//
 
@@ -359,6 +360,19 @@ async function run() {
             const result = await ManualClassRoutineCollection.insertOne(data);
             res.json(result)
         })
+        //principal geting all addmission form
+        app.get('/getallAddmissionForm', async (req, res) => {
+            const cursor = AddmissionFormCollection.find({})
+            const result = await cursor.toArray()
+            res.send(result)
+        })
+         //principal geting all addmission form
+         app.get('/getIndividualAddmissionForm/:id', async (req, res) => {
+            const id = req.params.id
+            const query = {_id: ObjectId(id)}
+            const result = await AddmissionFormCollection.findOne(query)
+            res.send(result)
+        })
 // ----------------END Teacher---------------//
 
 //----------------for stduent----------//
@@ -482,11 +496,11 @@ async function run() {
                 ipn_url: 'http://localhost:5000/ipn',
                 paymentStatus: 'pending',
                 shipping_method: 'Courier',
-                product_name: req.body.cus_name,
+                product_name:'ahan',
                 product_category: 'Electronic',
                 product_profile: 'shool',
-                product_image: req.body.cus_name,
-                cus_name: req.body.cus_name,
+                product_image:'ahan',
+                cus_name:'ahan',
                 cus_email: req.body.cus_email,
                 cus_add1: 'Dhaka',
                 cus_add2: 'Dhaka',
@@ -496,7 +510,7 @@ async function run() {
                 cus_country: 'Bangladesh',
                 cus_phone: '01711111111',
                 cus_fax: '01711111111',
-                ship_name: req.body.cus_name,
+                ship_name:'ahan',
                 ship_add1: 'Dhaka',
                 ship_add2: 'Dhaka',
                 ship_city: 'Dhaka',
@@ -563,26 +577,90 @@ async function run() {
                 res.json(result)
             })
     
-            // app.post('/validate', async (req, res) => {
-            //     const result = await PaymentCollection.findOne({
-            //         tran_id: req.body.tran_id
-            //     })
+           
+        });
+ 
+        app.post('/addmissionpayment', async (req, res) => {
         
-            //     if (result.val_id === req.body.val_id) {
-            //         const update = await PaymentCollection.updateOne({ tran_id: req.body.tran_id }, {
-            //             $set: {
-            //                 paymentStatus: 'paymentComplete'
-            //             }
-            //         })
-                   
-            //         res.send(update.modifiedCount > 0)
+            const admissiondata = req.body.admissiondata
+            
+            const productInfo = {
+                total_amount: req.body.total_amount,
+                currency: 'BDT',
+                tran_id: uuidv4(),
+                success_url: 'http://localhost:5000/successes',
+                fail_url: 'http://localhost:5000/failures',
+                cancel_url: 'http://localhost:5000/canceled',
+                ipn_url: 'http://localhost:5000/ipn',
+                paymentStatus: 'success',
+                shipping_method: 'Courier',
+                product_name:'ahan',
+                product_category: 'Electronic',
+                product_profile: 'shool',
+                product_image:'ahan',
+                cus_name:'ahan',
+                cus_email: 'ahan@gmail.com',
+                cus_add1: 'Dhaka',
+                cus_add2: 'Dhaka',
+                cus_city: 'Dhaka',
+                cus_state: 'Dhaka',
+                cus_postcode: '1000',
+                cus_country: 'Bangladesh',
+                cus_phone: '01711111111',
+                cus_fax: '01711111111',
+                ship_name:'ahan',
+                ship_add1: 'Dhaka',
+                ship_add2: 'Dhaka',
+                ship_city: 'Dhaka',
+                ship_state: 'Dhaka',
+                ship_postcode: 1000,
+                ship_country: 'Bangladesh',
+                multi_card_name: 'mastercard',
+                value_a: 'ref001_A',
+                value_b: 'ref002_B',
+                value_c: 'ref003_C',
+                value_d: 'ref004_D'
+            };
+ 
+            const sslcommer = new SSLCommerzPayment(process.env.STORE_ID, process.env.STORE_PASSWORD, false) 
+            sslcommer.init(productInfo).then(data => {
+    
+                const info = { ...productInfo, ...data }
+                
+                if (info.GatewayPageURL) {
+                    res.json(info.GatewayPageURL)
+                 }
+                else {
+                    return res.status(400).json({
+                        message: "SSL session was not successful"
+                    })
+                }
+     
+            }); 
+    
+            app.post("/successes", async (req, res) => {
+                const result = await AddmissionFormCollection.insertOne(admissiondata)
+               res.status(200).redirect(`http://localhost:3000/AddmissionSuccess`)
+               
+            }) 
+    
+            app.post("/failures", async (req, res) => {
+    
+                res.status(400).redirect('http://localhost:3000')
+         
+             })
+             app.post("/canceled", async (req, res) => {
+    
+                res.status(400).redirect('http://localhost:3000')
+         
+             })
+    
+             app.get('/payment/:tran_id', async (req, res) => {
         
-            //     }
-            //     else {
-            //         res.send({false: false})
-            //     }
-        
-            // })
+                const id = req.params.tran_id;
+                const result = await PaymentCollection.findOne({ tran_id: id })
+                res.json(result)
+            })
     
         });
         //----------------END stduent----------//
