@@ -30,7 +30,9 @@ async function run() {
         const StudentNoticeCollection = database.collection('StudentNoticeCollection');
         const FeeCollection = database.collection('FeeCollection');
         const PaymentCollection = database.collection('PaymentCollection');
-        const AnouncementCollection = database.collection('AnouncementCollection')
+        const AnouncementCollection = database.collection('AnouncementCollection');
+        const ExamRoutineCollection = database.collection('ExamRoutineCollection');
+        const ManualClassRoutineCollection = database.collection('ManualClassRoutineCollection');
         
 // ----------for all teacher -----------//
 
@@ -45,15 +47,14 @@ async function run() {
         app.get('/checkuser', async (req, res) => {
             const email = req.query.email;
             const query = {email: email};
-         
             const user = await UserCollection.findOne(query);
- 
-            if(user)
+
+            if(user.role)  
             {
                 res.send({userrole: user.role})
             }
             else{
-                res.send('HI')
+                res.send({none: 'norole'})
             }
         })
 
@@ -63,7 +64,7 @@ async function run() {
             const query = {email: email};
             const user = await UserCollection.findOne(query);
             
-            if(user.teachersection)
+            if(user?.teachersection)
             {
                 res.send({section: user.teachersection, classteacher: user.teacherclass})
             }
@@ -268,7 +269,7 @@ async function run() {
             const id = req.params.id;
             const query = {_id: ObjectId(id)};
             const student = await UserCollection.findOne(query);
-            console.log(student)
+           
             if(student.studentname)
             {
                 const query2 = {studentclass: student.studentclass, studentroll: student.studentroll, studentname: student.studentname};
@@ -328,6 +329,36 @@ async function run() {
             res.send(result)
         })
 
+        //teacher deleting class routine
+        app.delete('/deleteclassroutine/:id', async (req, res) => {
+            const id = req.params.id
+            const query = {_id: ObjectId(id)}
+            const result = await ClassRoutineCollection.deleteOne(query)
+            res.send(result)
+        })
+        //adding exam routine
+        app.post('/addexamroutine', async (req, res) => {
+            const data = req.files.img.data;
+            const encodedpic1 = data.toString('base64');
+            const img = Buffer.from(encodedpic1, 'base64');
+      
+            const routine = {img:img}
+            const result = await ExamRoutineCollection.insertOne(routine)
+            res.json(result) 
+        }) 
+        //teacher deleting exam routine
+        app.delete('/deleteExamRoutine/:id', async (req, res) => {
+            const id = req.params.id
+            const query = {_id: ObjectId(id)}
+            const result = await ExamRoutineCollection.deleteOne(query)
+            res.send(result)
+        })
+        //teacher posting manual routine
+        app.post('/addManualRoutine', async (req, res) => {
+            const data = req.body
+            const result = await ManualClassRoutineCollection.insertOne(data);
+            res.json(result)
+        })
 // ----------------END Teacher---------------//
 
 //----------------for stduent----------//
@@ -337,7 +368,14 @@ async function run() {
             const email = req.query.email;
             const query = {email: email};
             const user = await UserCollection.findOne(query)
-            res.send({studentclass: user.studentclass, studentsection: user.studentsection})
+           
+            if(user?.studentclass){
+    
+                res.send({studentclass: user.studentclass, studentsection: user.studentsection})
+            }
+            else{
+                res.send('hi')
+            }
         })
 
           //finding result of first term for individual stduent
@@ -401,6 +439,12 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result)
         })
+         //geting class routine 
+         app.get('/getExamroutine', async (req,res) => {
+            const cursor = ExamRoutineCollection.find({})
+            const result = await cursor.toArray();
+            res.send(result)
+        })
 
         //student get info of fees
         app.get('/getfees', async(req, res) => {
@@ -409,11 +453,18 @@ async function run() {
             const result = await FeeCollection.find(query).toArray();
             res.send(result)
         })
-
+        //student geting manual routine
+        app.get('/getManualClassRoutine', async (req, res) => {
+            const section = req.query.section
+            const routineClass = req.query.routineClass
+            const query = {routineclass: routineClass, routinesection: section}
+            const result = await ManualClassRoutineCollection.findOne(query)
+            res.send(result)
+        })
 // -------------Bikash Payment system implement-----------//
         app.get('/getpaymentmonth/:id', async (req, res) => {
             const id = req.params.id;
-            console.log(id)
+
             const query = {_id: ObjectId(id)};
             const result = await FeeCollection.findOne(query);
             res.send(result)
