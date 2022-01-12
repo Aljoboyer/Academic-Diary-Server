@@ -34,6 +34,8 @@ async function run() {
         const ExamRoutineCollection = database.collection('ExamRoutineCollection');
         const ManualClassRoutineCollection = database.collection('ManualClassRoutineCollection');
         const AddmissionFormCollection = database.collection('AddmissionFormCollection')
+        const SessionFeeCollection = database.collection('SessionFeeCollection')
+
         
 // ----------for all teacher -----------//
 
@@ -373,6 +375,12 @@ async function run() {
             const result = await AddmissionFormCollection.findOne(query)
             res.send(result)
         })
+        //Principal posting session fee
+        app.post('/postSessionFee', async (req, res) => {
+            const data = req.body
+            const result = await SessionFeeCollection.insertOne(data);
+            res.json(result)
+        })
 // ----------------END Teacher---------------//
 
 //----------------for stduent----------//
@@ -483,7 +491,12 @@ async function run() {
             const result = await FeeCollection.findOne(query);
             res.send(result)
         })
-
+        app.get('/getSessionfees', async (req, res) => {
+            const email = req.query.email
+            const query = {email: email}
+            const result = await SessionFeeCollection.findOne(query)
+            res.send(result)
+        })
         app.post('/init', async (req, res) => {
             const id = req.body.id
             const productInfo = {
@@ -662,6 +675,101 @@ async function run() {
                 res.json(result)
             })
     
+        });
+        app.post('/sessionFee', async (req, res) => {
+            const id = req.body.id
+            const productInfo = {
+                total_amount: req.body.total_amount,
+                currency: 'BDT',
+                tran_id: uuidv4(),
+                success_url: 'http://localhost:5000/success',
+                fail_url: 'http://localhost:5000/failure',
+                cancel_url: 'http://localhost:5000/cancel',
+                ipn_url: 'http://localhost:5000/ipn',
+                paymentStatus: 'pending',
+                shipping_method: 'Courier',
+                product_name:'ahan',
+                product_category: 'Electronic',
+                product_profile: 'shool',
+                product_image:'ahan',
+                cus_name:'ahan',
+                cus_email: req.body.cus_email,
+                cus_add1: 'Dhaka',
+                cus_add2: 'Dhaka',
+                cus_city: 'Dhaka',
+                cus_state: 'Dhaka',
+                cus_postcode: '1000',
+                cus_country: 'Bangladesh',
+                cus_phone: '01711111111',
+                cus_fax: '01711111111',
+                ship_name:'ahan',
+                ship_add1: 'Dhaka',
+                ship_add2: 'Dhaka',
+                ship_city: 'Dhaka',
+                ship_state: 'Dhaka',
+                ship_postcode: 1000,
+                ship_country: 'Bangladesh',
+                multi_card_name: 'mastercard',
+                value_a: 'ref001_A',
+                value_b: 'ref002_B',
+                value_c: 'ref003_C',
+                value_d: 'ref004_D'
+            };
+ 
+
+            const sslcommer = new SSLCommerzPayment(process.env.STORE_ID, process.env.STORE_PASSWORD, false) 
+            sslcommer.init(productInfo).then(data => {
+    
+                //process the response that got from sslcommerz 
+                //https://developer.sslcommerz.com/doc/v4/#returned-parameters
+    
+                const info = { ...productInfo, ...data }
+                console.log(info)
+                if (info.GatewayPageURL) {
+                    res.json(info.GatewayPageURL)
+                 }
+                else {
+                    return res.status(400).json({
+                        message: "SSL session was not successful"
+                    })
+                }
+     
+            }); 
+    
+            app.post("/success", async (req, res) => {
+                const filter = {_id: ObjectId(id)}
+                const option = {upsert: true};
+          
+                const updatedoc ={
+                    $set:{
+                        paymentStatus: 'PAID',
+                        tran_id: uuidv4()
+                    }
+                }
+                const result = await SessionFeeCollection.updateOne(filter, updatedoc, option)
+               res.status(200).redirect(`http://localhost:3000/studentdashboard/success`)
+               
+            })
+    
+            app.post("/failure", async (req, res) => {
+    
+                res.status(400).redirect('http://localhost:3000/studentdashboard/studentpayment')
+         
+             })
+             app.post("/cancel", async (req, res) => {
+    
+                res.status(400).redirect('http://localhost:3000/studentdashboard/studentpayment')
+         
+             })
+    
+             app.get('/payment/:tran_id', async (req, res) => {
+        
+                const id = req.params.tran_id;
+                const result = await PaymentCollection.findOne({ tran_id: id })
+                res.json(result)
+            })
+    
+           
         });
         //----------------END stduent----------//
 
