@@ -200,11 +200,13 @@ async function run() {
             const result = await StudentNoticeCollection.insertOne(data);
             res.json(result)
         })
-
+  
         //teacher geting student notice for managing
         app.get('/getstudentnotice', async(req,res) => {
-            const cursor = StudentNoticeCollection.find({});
-            const result = await cursor.toArray();
+            const section = req.query.section;
+            const studentclass = req.query.class;
+            const query = {studentclass: studentclass, studentsection: section}
+            const result = await StudentNoticeCollection.find(query).toArray()
             res.send(result)
         })
 
